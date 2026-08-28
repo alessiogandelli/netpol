@@ -154,11 +154,11 @@ def main() -> None:
         print("No COP folder given; skipping real-data comparison.")
         return
 
-    from _gml import read_multilayer_gml  # noqa: E402
-
     gml = os.path.join(folder, "networks", "cop22_retweet_network_ml.gml")
     if not os.path.exists(gml):
         sys.exit(f"multilayer GML not found: {gml}")
+
+    from netpol import read_multilayer_gml  # noqa: E402
 
     layers = read_multilayer_gml(gml)
     print(f"loaded {len(layers)} layers from {gml}")

@@ -30,18 +30,13 @@ from netpol.layer_result import LayerResult
 from netpol.scoring import IdeologyScorer
 
 
-def analyze_layer(
-    graph: nx.DiGraph,
-    config: PolarizationConfig,
-    ideology_scorer: IdeologyScorer | None = None,
-) -> LayerResult:
+def analyze_layer( graph: nx.DiGraph, config: PolarizationConfig, ideology_scorer: IdeologyScorer | None = None,) -> LayerResult:
     """Run the polarization pipeline on a single directed graph.
 
     Args:
         graph: A directed graph (``a -> b`` = "a retweets b").
         config: Run configuration.
-        ideology_scorer: Optional scorer.  Defaults to
-            :class:`netpol.ideology.LatentIdeologyScorer`.
+        ideology_scorer: Optional scorer.  Defaults to `netpol.ideology.LatentIdeologyScorer`.
 
     Returns:
         A ``LayerResult``.  ``is_polarized`` reflects the raw p-value only;
@@ -62,16 +57,18 @@ def analyze_layer(
         )
         return result
 
-    influencers, _ = select_influencers(
-        graph, config.influencer_strategy, config.n_influencers
-    )
+    # Select influencers 
+    influencers, _ = select_influencers( graph, config.influencer_strategy, config.n_influencers)
     result.influencers = influencers
 
+    # Build the subgraph of edges into the selected influencers. a -> b = "a retweets b" so we want edges where the target is an influencer.
     edges = build_influencer_edges(graph, influencers)
+
     if edges.empty:
         result.skip_reason = "no edges into selected influencers"
         return result
 
+    # Score the edges with the ideology scorer.  This is a plug point; the default scorer is LatentIdeologyScorer.
     scorer = ideology_scorer or LatentIdeologyScorer()
 
     try:

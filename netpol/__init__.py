@@ -14,6 +14,7 @@ from netpol.config import PolarizationConfig
 from netpol.edges import build_influencer_edges
 from netpol.ideology import LatentIdeologyScorer
 from netpol.influencers import select_influencers
+from netpol.io import load_layers, read_multilayer_gml
 from netpol.layer_result import LayerResult
 from netpol.pipeline import analyze_layer, analyze_layers
 from netpol.scoring import IdeologyScorer
@@ -31,5 +32,7 @@ __all__ = [
     "apply_fdr_correction",
     "analyze_layer",
     "analyze_layers",
+    "load_layers",
+    "read_multilayer_gml",
     "__version__",
 ]

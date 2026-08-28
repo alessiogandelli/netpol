@@ -36,8 +36,13 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
 import networkx as nx  # noqa: E402
 
-from netpol import LatentIdeologyScorer, PolarizationConfig, analyze_layers  # noqa: E402
-from _gml import load_topic_labels, read_multilayer_gml  # noqa: E402
+from netpol import (  # noqa: E402
+    LatentIdeologyScorer,
+    PolarizationConfig,
+    analyze_layers,
+    read_multilayer_gml,
+)
+from _gml import load_topic_labels  # noqa: E402
 
 N_COP = 22
 N_INFLUENCERS = 100

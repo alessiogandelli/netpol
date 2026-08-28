@@ -1,44 +1,14 @@
-"""Shared data-prep helpers for the COP examples.
+"""Topic-label helper for the COP examples.
 
-Kept out of ``netpol/`` because these read the raw multiplex GML and topic
-CSV produced by the ``topiclayers`` pipeline -- netpol itself only ever sees
-plain networkx graphs.
+Network loading lives in netpol itself (``netpol.load_layers`` /
+``netpol.read_multilayer_gml``); this module only maps topic ids to human
+labels from the topiclayers topic CSV / legacy json.
 """
 
 from __future__ import annotations
 
 import glob
 from pathlib import Path
-
-import networkx as nx
-
-
-def read_multilayer_gml(path: str) -> dict[int, nx.DiGraph]:
-    """Parse a multiplex GML into ``dict[layer_id, DiGraph]``.
-
-    The format is a flat list of layers, actors and ``source,target,layer``
-    edge triples (``source -> target`` = "source retweets target").
-    """
-    section = None
-    layers: dict[int, nx.DiGraph] = {}
-
-    with open(path) as fh:
-        for raw in fh:
-            line = raw.strip()
-            if not line:
-                continue
-            if line.startswith("#"):
-                section = line[1:].strip()
-                continue
-
-            if section == "LAYERS":
-                lid = int(float(line.split(",")[0]))
-                layers[lid] = nx.DiGraph()
-            elif section == "EDGES":
-                src, tgt, lid = line.split(",")
-                layers[int(float(lid))].add_edge(src, tgt)
-
-    return layers
 
 
 def load_topic_labels(folder: Path, n_cop: int) -> dict[int, str]:

@@ -1,9 +1,8 @@
 """Reproduce the original COP pipeline (climate-network-analysis/src/analysis/ideology.py).
 
 This mirrors the data preparation from the original script: read a multilayer
-GML, convert to a ``dict[layer_id, DiGraph]``, and run
-``netpol.analyze_layers``.  The multiplex GML is parsed directly with networkx
--- netpol only ever sees plain networkx graphs.
+GML via ``netpol.read_multilayer_gml`` into a ``dict[layer_id, DiGraph]`` and
+run ``netpol.analyze_layers``.
 
 Requires the COP data folder to exist (not available in CI / this checkout),
 e.g.:
@@ -21,9 +20,14 @@ from pathlib import Path
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from netpol import LatentIdeologyScorer, PolarizationConfig, analyze_layers  # noqa: E402
+from netpol import (  # noqa: E402
+    LatentIdeologyScorer,
+    PolarizationConfig,
+    analyze_layers,
+    read_multilayer_gml,
+)
 
-from _gml import load_topic_labels, read_multilayer_gml  # noqa: E402
+from _gml import load_topic_labels  # noqa: E402
 
 N_COP = 22
 N_INFLUENCERS = 100
