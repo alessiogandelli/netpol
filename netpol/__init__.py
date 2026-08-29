@@ -19,7 +19,7 @@ from netpol.config import InfluencerStrategy, PolarizationConfig
 from netpol.edges import build_influencer_edges
 from netpol.ideology import LatentIdeologyScorer
 from netpol.influencers import select_influencers
-from netpol.io import load_layers, read_multilayer_gml
+from netpol.io import load_layers, load_network, read_multilayer_gml
 from netpol.layer_result import LayerResult, Results
 from netpol.pipeline import analyze, analyze_layers, analyze_network
 from netpol.scoring import IdeologyScorer
@@ -43,6 +43,7 @@ __all__ = [
     "dip_test",
     "apply_fdr_correction",
     "load_layers",
+    "load_network",
     "read_multilayer_gml",
     # type aliases
     "LayerId",

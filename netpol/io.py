@@ -8,7 +8,8 @@ topiclayers writes networks in two shapes:
 * one plain networkx GML per topic under ``networks/projected/``.
 
 ``load_layers`` accepts either and returns the ``dict[layer_id, DiGraph]``
-that ``netpol.pipeline.analyze_layers`` consumes.
+that ``netpol.pipeline.analyze_layers`` consumes; ``load_network`` loads a
+single plain GML into the ``DiGraph`` that ``analyze_network`` consumes.
 """
 
 from __future__ import annotations
@@ -18,6 +19,29 @@ from pathlib import Path
 import networkx as nx
 
 from netpol.types import Layers
+
+
+def _read_projected_gml(path: str | Path) -> nx.DiGraph:
+    """Read a plain networkx GML and guarantee a directed simple graph."""
+    graph = nx.read_gml(path)
+    if isinstance(graph, nx.MultiDiGraph):
+        raise TypeError("MultiDiGraph is not supported")
+    if not isinstance(graph, nx.DiGraph):
+        graph = graph.to_directed()
+    return nx.DiGraph(graph)
+
+
+def load_network(path: str | Path) -> nx.DiGraph:
+    """Load a single plain (projected) networkx GML as a directed graph.
+
+    Args:
+        path: Path to a GML file written by ``nx.write_gml`` (e.g. a
+            topiclayers ``networks/projected/*__prj_*.gml``).
+
+    Returns:
+        A ``DiGraph`` suitable for :func:`netpol.analyze_network`.
+    """
+    return _read_projected_gml(path)
 
 
 def read_multilayer_gml(path: str | Path) -> dict[int, nx.DiGraph]:
@@ -75,10 +99,8 @@ def load_layers(path: str | Path) -> Layers:
     for gml_path in sorted(projected.glob("*__prj_*.gml")):
         topic = gml_path.stem.split("__prj_")[1]
         lid = int(float(topic))
-        graph = nx.read_gml(gml_path)
-        if not isinstance(graph, nx.DiGraph):
-            graph = graph.to_directed()
-        layers[lid] = nx.DiGraph(graph)
+        graph = _read_projected_gml(gml_path)
+        layers[lid] = graph
 
     if not layers:
         raise FileNotFoundError(f"no projected topic GMLs found in: {projected}")

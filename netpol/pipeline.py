@@ -2,8 +2,10 @@
 
 Three entry points, from simplest to most general:
 
-* ``analyze`` -- the top-level convenience function: pass a single network
-  or a multilayer mapping and get back the matching result shape.
+* ``analyze`` -- the top-level convenience function: pass a single network,
+  a multilayer mapping, or a path to any of those (plain GML, multilayer
+  GML, or a topiclayers output folder) and get back the matching result
+  shape.
 * ``analyze_network`` -- the primitive: one directed graph in, one
   ``LayerResult`` out.  Fully testable in isolation.
 * ``analyze_layers`` -- thin orchestration over ``dict[layer_id, DiGraph]``
@@ -19,6 +21,8 @@ Design constraints enforced here (see the engineering spec):
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import networkx as nx
 
 from netpol.bimodality import apply_fdr_correction, dip_test
@@ -26,24 +30,28 @@ from netpol.config import PolarizationConfig
 from netpol.edges import build_influencer_edges
 from netpol.ideology import LatentIdeologyScorer
 from netpol.influencers import select_influencers
+from netpol.io import _read_projected_gml, load_layers, read_multilayer_gml
 from netpol.layer_result import LayerResult, Results
 from netpol.scoring import IdeologyScorer
 from netpol.types import Layers, ScoreTable
 
 
 def analyze(
-    target: nx.DiGraph | Layers,
+    target: nx.DiGraph | Layers | str | Path,
     config: PolarizationConfig,
     ideology_scorer: IdeologyScorer | None = None,
 ) -> LayerResult | Results:
-    """Analyze a single network or a multilayer network.
+    """Analyze a single network, a multilayer network, or a path to either.
 
     The top-level entry point: dispatches to :func:`analyze_network` when
-    given a bare ``DiGraph`` and to :func:`analyze_layers` when given a
-    ``dict[layer_id, DiGraph]``.
+    given a bare ``DiGraph`` (or a path to a plain GML file) and to
+    :func:`analyze_layers` when given a ``dict[layer_id, DiGraph]`` (or a
+    path to a multilayer GML / topiclayers output folder).
 
     Args:
-        target: A directed graph, or a mapping ``layer_id -> DiGraph``.
+        target: A directed graph, a mapping ``layer_id -> DiGraph``, or a
+            path to a plain GML file, a multilayer GML file, or a
+            topiclayers output folder.
         config: Run configuration.
         ideology_scorer: Optional scorer.  Defaults to
             `netpol.ideology.LatentIdeologyScorer`.
@@ -52,25 +60,22 @@ def analyze(
         A ``LayerResult`` for a single network, or a mapping
         ``layer_id -> LayerResult`` for a multilayer network.
     """
+    target = _coerce_target(target)
     if isinstance(target, nx.DiGraph):
         return analyze_network(target, config, ideology_scorer)
-    if isinstance(target, dict):
-        return analyze_layers(target, config, ideology_scorer)
-    raise TypeError(
-        "expected a networkx.DiGraph or a dict[layer_id, DiGraph], got "
-        f"{type(target).__name__}"
-    )
+    return analyze_layers(target, config, ideology_scorer)
 
 
 def analyze_network(
-    graph: nx.DiGraph,
+    graph: nx.DiGraph | str | Path,
     config: PolarizationConfig,
     ideology_scorer: IdeologyScorer | None = None,
 ) -> LayerResult:
     """Run the polarization pipeline on a single directed network.
 
     Args:
-        graph: A directed graph (``a -> b`` = "a retweets b").
+        graph: A directed graph (``a -> b`` = "a retweets b"), or a path
+            to a plain GML file.
         config: Run configuration.
         ideology_scorer: Optional scorer.  Defaults to `netpol.ideology.LatentIdeologyScorer`.
 
@@ -78,6 +83,12 @@ def analyze_network(
         A ``LayerResult``.  ``is_polarized`` reflects the raw p-value only;
         FDR correction is applied later by ``analyze_layers``.
     """
+    graph = _coerce_target(graph)
+    if not isinstance(graph, nx.DiGraph):
+        raise TypeError(
+            "analyze_network expects a single network; got a multilayer "
+            "mapping. Use analyze or analyze_layers instead."
+        )
     _require_digraph(graph)
 
     result = LayerResult(
@@ -128,14 +139,15 @@ def analyze_network(
 
 
 def analyze_layers(
-    layers: Layers,
+    layers: Layers | str | Path,
     config: PolarizationConfig,
     ideology_scorer: IdeologyScorer | None = None,
 ) -> Results:
     """Run ``analyze_network`` per layer and apply FDR correction across layers.
 
     Args:
-        layers: Mapping ``layer_id -> DiGraph``.
+        layers: Mapping ``layer_id -> DiGraph``, or a path to a multilayer
+            GML file or a topiclayers output folder.
         config: Run configuration.  ``exclude_layers`` entries are skipped
             with a ``skip_reason``.
         ideology_scorer: Optional scorer; defaults to the built-in one.
@@ -145,6 +157,13 @@ def analyze_layers(
         is True, ``adjusted_p_value`` is set on analyzed layers and
         ``is_polarized`` is re-evaluated against the adjusted p-value.
     """
+    layers = _coerce_target(layers)
+    if not isinstance(layers, dict):
+        raise TypeError(
+            "analyze_layers expects a multilayer mapping (or a path to "
+            "one); got a single network. Use analyze or analyze_network "
+            "instead."
+        )
     results: Results = {}
 
     for layer_id, graph in layers.items():
@@ -172,6 +191,35 @@ def analyze_layers(
             r.is_polarized = adjusted[layer_id] < config.significance_level
 
     return results
+
+
+def _coerce_target(target: nx.DiGraph | Layers | str | Path) -> nx.DiGraph | Layers:
+    """Normalize the entry-point input into a graph or a layer mapping.
+
+    ``DiGraph`` and ``dict`` pass through untouched.  A ``str``/``Path`` is
+    loaded: a directory via ``load_layers``, a multilayer GML (first
+    non-empty line starts with ``#TYPE``) via ``read_multilayer_gml``,
+    anything else as a single plain GML network.
+    """
+    if isinstance(target, (nx.DiGraph, dict)):
+        return target
+
+    if isinstance(target, (str, Path)):
+        path = Path(target)
+        if not path.exists():
+            raise FileNotFoundError(f"network path not found: {path}")
+        if path.is_dir():
+            return load_layers(path)
+        with open(path) as fh:
+            first = next((line.strip() for line in fh if line.strip()), "")
+        if first.startswith("#TYPE"):
+            return read_multilayer_gml(path)
+        return _read_projected_gml(path)
+
+    raise TypeError(
+        "expected a networkx.DiGraph, a dict[layer_id, DiGraph], or a "
+        f"path to either, got {type(target).__name__}"
+    )
 
 
 def _require_digraph(graph: nx.DiGraph) -> None:

@@ -3,7 +3,7 @@
 import networkx as nx
 import pytest
 
-from netpol.io import load_layers, read_multilayer_gml
+from netpol.io import load_layers, load_network, read_multilayer_gml
 
 
 MULTILAYER_GML = """#TYPE
@@ -86,3 +86,44 @@ def test_load_layers_empty_projected_dir(tmp_path):
     (tmp_path / "networks" / "projected").mkdir(parents=True)
     with pytest.raises(FileNotFoundError):
         load_layers(tmp_path)
+
+
+# --- load_network ------------------------------------------------------------
+
+
+def test_load_network_directed_gml(tmp_path):
+    g = nx.DiGraph()
+    g.add_edge("a", "b")
+    p = tmp_path / "net.gml"
+    nx.write_gml(g, p)
+
+    loaded = load_network(p)
+    assert isinstance(loaded, nx.DiGraph)
+    assert loaded.has_edge("a", "b")
+    assert not loaded.has_edge("b", "a")
+
+
+def test_load_network_converts_undirected(tmp_path):
+    g = nx.Graph()
+    g.add_edge("a", "b")
+    p = tmp_path / "net.gml"
+    nx.write_gml(g, p)
+
+    loaded = load_network(p)
+    assert isinstance(loaded, nx.DiGraph)
+    assert loaded.has_edge("a", "b") and loaded.has_edge("b", "a")
+
+
+def test_load_network_rejects_multidigraph(tmp_path):
+    g = nx.MultiDiGraph()
+    g.add_edge("a", "b")
+    p = tmp_path / "net.gml"
+    nx.write_gml(g, p)
+
+    with pytest.raises(TypeError):
+        load_network(p)
+
+
+def test_load_network_missing_file(tmp_path):
+    with pytest.raises(FileNotFoundError):
+        load_network(tmp_path / "nope.gml")

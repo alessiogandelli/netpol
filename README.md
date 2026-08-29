@@ -60,6 +60,18 @@ results = analyze({"l1": layer1(), "l2": layer2()}, config)
 print(results["l1"].is_polarized)
 ```
 
+You don't have to load the networks yourself: every entry point also accepts
+a path -- to a plain networkx GML file (single network), a multilayer GML
+(`*_retweet_network_ml.gml`), or a topiclayers output folder -- and loads
+the right shape automatically:
+
+```python
+from netpol import PolarizationConfig, analyze
+
+result = analyze("networks/projected/cop22__prj_1.gml", config)    # LayerResult
+results = analyze("networks/cop22_retweet_network_ml.gml", config) # Results
+```
+
 See `examples/quickstart.py` for a runnable version.
 
 ## How it works
@@ -86,13 +98,16 @@ the full surface in your IDE.
 
 Entry points:
 
-- `analyze(target, config, scorer=None)` -- top-level entry point. Pass a single
-  `nx.DiGraph` and get a `LayerResult`, or a `dict[layer_id, DiGraph]` and get a
-  `dict[layer_id, LayerResult]` (with FDR correction).
+- `analyze(target, config, scorer=None)` -- top-level entry point. Pass a
+  single `nx.DiGraph` (or a path to a plain GML file) and get a
+  `LayerResult`, or a `dict[layer_id, DiGraph]` (or a path to a multilayer
+  GML / topiclayers output folder) and get a `dict[layer_id, LayerResult]`
+  (with FDR correction).
 - `analyze_network(graph, config, scorer=None)` -> `LayerResult` -- the
-  single-network primitive.
+  single-network primitive. Also accepts a path to a plain GML file.
 - `analyze_layers(layers, config, scorer=None)` -> `dict[layer_id, LayerResult]` --
-  the multilayer orchestration.
+  the multilayer orchestration. Also accepts a path to a multilayer GML or
+  output folder.
 
 Configuration and results:
 
@@ -100,6 +115,10 @@ Configuration and results:
   `influencer_strategy` is typed `Literal["degree", "in_degree"]`.
 - `LatentIdeologyScorer(min_sources=2, max_sources=None)` -- built-in scorer.
 - `IdeologyScorer` -- `Protocol` to plug in your own scoring.
+- `load_network(path)` -> `nx.DiGraph` -- load a single plain GML file as a
+  directed graph (direction fixed up, `MultiDiGraph` rejected).
+- `load_layers(path)` / `read_multilayer_gml(path)` -> `dict[layer_id, DiGraph]` --
+  explicit loaders if you prefer to load before analyzing.
 - `LayerResult` -- what you get back per network/layer:
 
   | field | type | meaning |
