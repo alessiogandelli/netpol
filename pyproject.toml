@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "netpol"
-version = "0.2.0"
+version = "0.2.1"
 description = "Measure polarization in (multilayer) social networks via latent-ideology scoring and Hartigan's dip test."
 authors = ["alessiogandelli <alessiogandelli99@gmail.com>"]
 readme = "README.md"

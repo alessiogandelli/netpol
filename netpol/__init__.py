@@ -25,7 +25,7 @@ from netpol.pipeline import analyze, analyze_layers, analyze_network
 from netpol.scoring import IdeologyScorer
 from netpol.types import InteractionTable, LayerId, Layers, ScoreTable
 
-__version__ = "0.2.0"
+__version__ = "0.2.1"
 
 __all__ = [
     # entry points
