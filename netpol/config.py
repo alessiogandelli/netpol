@@ -10,6 +10,12 @@ and open questions behind each default.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import Literal
+
+from netpol.types import LayerId
+
+InfluencerStrategy = Literal["degree", "in_degree"]
+"""How to rank nodes when selecting influencers."""
 
 
 @dataclass(frozen=True)
@@ -34,13 +40,13 @@ class PolarizationConfig:
             built-in scorer is already deterministic (see ``DEBATES.md``).
     """
 
-    influencer_strategy: str = "in_degree"
+    influencer_strategy: InfluencerStrategy = "in_degree"
     n_influencers: int = 30
     ideology_dimensions: int = 1
     significance_level: float = 0.05
     fdr_correction: bool = True
     min_edges: int = 10
-    exclude_layers: tuple = field(default_factory=tuple)
+    exclude_layers: tuple[LayerId, ...] = field(default_factory=tuple)
     random_seed: int | None = None
 
     def __post_init__(self) -> None:

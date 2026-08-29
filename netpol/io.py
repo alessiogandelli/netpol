@@ -17,6 +17,8 @@ from pathlib import Path
 
 import networkx as nx
 
+from netpol.types import Layers
+
 
 def read_multilayer_gml(path: str | Path) -> dict[int, nx.DiGraph]:
     """Parse a topiclayers multilayer GML into ``dict[layer_id, DiGraph]``.
@@ -46,7 +48,7 @@ def read_multilayer_gml(path: str | Path) -> dict[int, nx.DiGraph]:
     return layers
 
 
-def load_layers(path: str | Path) -> dict[int, nx.DiGraph]:
+def load_layers(path: str | Path) -> Layers:
     """Load layers from a topiclayers output path.
 
     Args:

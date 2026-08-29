@@ -12,13 +12,17 @@ influencer, with columns ``['influencer', 'user']`` (``user`` is the retweeter,
 
 from __future__ import annotations
 
-import networkx as nx
+from typing import Hashable, Sequence
+
 import pandas as pd
+import networkx as nx
+
+from netpol.types import InteractionTable
 
 
 def build_influencer_edges(
-    graph: nx.DiGraph, influencers: list
-) -> pd.DataFrame:
+    graph: nx.DiGraph, influencers: Sequence[Hashable]
+) -> InteractionTable:
     """Return a DataFrame of ``(influencer, user)`` rows for edges into influencers.
 
     One row per edge ``user -> influencer`` where ``influencer`` is in

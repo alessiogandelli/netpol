@@ -1,9 +1,10 @@
 import networkx as nx
 import pytest
 
-from netpol import analyze_layer, analyze_layers
+from netpol import analyze, analyze_network, analyze_layers
 from netpol.config import PolarizationConfig
 from netpol.ideology import LatentIdeologyScorer
+from netpol.layer_result import LayerResult
 
 from .fixtures import FakeIdeologyScorer, sparse_layer, star_graph
 
@@ -18,47 +19,47 @@ def _bimodal_layer():
     return g
 
 
-def test_analyze_layer_end_to_end():
+def test_analyze_network_end_to_end():
     g = _bimodal_layer()
     config = PolarizationConfig(n_influencers=2, min_edges=1)
     scorer = LatentIdeologyScorer(min_sources=1)
-    res = analyze_layer(g, config, scorer)
+    res = analyze_network(g, config, scorer)
     assert res.was_analyzed
     assert res.p_value is not None
     assert res.dip_statistic is not None
     assert res.is_polarized is True  # two-camp distribution is non-unimodal
 
 
-def test_analyze_layer_skips_below_min_edges():
-    res = analyze_layer(sparse_layer(), PolarizationConfig())
+def test_analyze_network_skips_below_min_edges():
+    res = analyze_network(sparse_layer(), PolarizationConfig())
     assert not res.was_analyzed
     assert "min_edges" in res.skip_reason
 
 
-def test_analyze_layer_skip_on_scorer_failure():
+def test_analyze_network_skip_on_scorer_failure():
     g = star_graph()
 
     class ExplodingScorer:
         def score(self, edges, n_dimensions):
             raise ValueError("boom")
 
-    res = analyze_layer(g, PolarizationConfig(min_edges=1), ExplodingScorer())
+    res = analyze_network(g, PolarizationConfig(min_edges=1), ExplodingScorer())
     assert not res.was_analyzed
     assert res.skip_reason.startswith("scoring_failed")
 
 
-def test_analyze_layer_rejects_undirected():
+def test_analyze_network_rejects_undirected():
     g = nx.Graph()
     g.add_edge("a", "b")
     with pytest.raises(TypeError):
-        analyze_layer(g, PolarizationConfig())
+        analyze_network(g, PolarizationConfig())
 
 
-def test_analyze_layer_rejects_multidigraph():
+def test_analyze_network_rejects_multidigraph():
     g = nx.MultiDiGraph()
     g.add_edge("a", "b")
     with pytest.raises(TypeError):
-        analyze_layer(g, PolarizationConfig())
+        analyze_network(g, PolarizationConfig())
 
 
 def test_analyze_layers_applies_fdr():
@@ -87,3 +88,24 @@ def test_analyze_layers_without_fdr():
     config = PolarizationConfig(n_influencers=2, min_edges=1, fdr_correction=False)
     results = analyze_layers(layers, config, LatentIdeologyScorer(min_sources=1))
     assert results["l1"].adjusted_p_value is None
+
+
+def test_analyze_dispatches_single_graph():
+    config = PolarizationConfig(n_influencers=2, min_edges=1)
+    scorer = LatentIdeologyScorer(min_sources=1)
+    res = analyze(_bimodal_layer(), config, scorer)
+    assert isinstance(res, LayerResult)
+    assert res.was_analyzed
+
+
+def test_analyze_dispatches_multilayer_dict():
+    config = PolarizationConfig(n_influencers=2, min_edges=1)
+    scorer = LatentIdeologyScorer(min_sources=1)
+    results = analyze({"l1": _bimodal_layer()}, config, scorer)
+    assert isinstance(results, dict)
+    assert results["l1"].was_analyzed
+
+
+def test_analyze_rejects_other_types():
+    with pytest.raises(TypeError):
+        analyze("not a network", PolarizationConfig())

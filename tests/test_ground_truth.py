@@ -8,7 +8,7 @@ job -- regardless of whether the lower-level units still pass.
 
 import networkx as nx
 
-from netpol import LatentIdeologyScorer, PolarizationConfig, analyze_layer
+from netpol import LatentIdeologyScorer, PolarizationConfig, analyze_network
 
 
 def _two_camps(n: int = 50) -> nx.DiGraph:
@@ -52,21 +52,21 @@ _SCORER = LatentIdeologyScorer(min_sources=1)
 
 
 def test_two_camps_is_polarized():
-    res = analyze_layer(_two_camps(), _CFG, _SCORER)
+    res = analyze_network(_two_camps(), _CFG, _SCORER)
     assert res.was_analyzed
     assert res.is_polarized is True
     assert res.p_value < 0.05
 
 
 def test_consensus_is_not_polarized():
-    res = analyze_layer(_consensus(), _CFG, _SCORER)
+    res = analyze_network(_consensus(), _CFG, _SCORER)
     assert res.was_analyzed
     assert res.is_polarized is False
     assert res.p_value >= 0.05
 
 
 def test_two_camps_scores_are_bimodal_and_bounded():
-    res = analyze_layer(_two_camps(), _CFG, _SCORER)
+    res = analyze_network(_two_camps(), _CFG, _SCORER)
     scores = res.scores["score_1"]
     assert (scores.abs() <= 1.0).all()
     # each camp collapses to one pole; the two poles are opposite (the global
@@ -82,15 +82,15 @@ def test_two_camps_scores_are_bimodal_and_bounded():
 
 
 def test_bridge_reduces_dip_vs_pure_camps():
-    pure = analyze_layer(_two_camps(), _CFG, _SCORER)
-    bridged = analyze_layer(_camps_with_bridge(), _CFG, _SCORER)
+    pure = analyze_network(_two_camps(), _CFG, _SCORER)
+    bridged = analyze_network(_camps_with_bridge(), _CFG, _SCORER)
     assert bridged.is_polarized is True
     # a middle population makes the distribution more unimodal -> lower dip
     assert bridged.dip_statistic < pure.dip_statistic
 
 
 def test_single_hub_is_skipped_not_polarized():
-    res = analyze_layer(_single_hub(), _CFG, _SCORER)
+    res = analyze_network(_single_hub(), _CFG, _SCORER)
     assert not res.was_analyzed
     assert res.is_polarized is None
     assert "influencers" in res.skip_reason

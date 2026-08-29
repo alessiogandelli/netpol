@@ -5,7 +5,7 @@ Run with:  poetry run python examples/quickstart.py
 
 import networkx as nx
 
-from netpol import LatentIdeologyScorer, PolarizationConfig, analyze_layers
+from netpol import LatentIdeologyScorer, PolarizationConfig, analyze_layers, analyze_network
 
 
 def make_polarized_layer(camp_size: int = 100) -> nx.DiGraph:
@@ -48,6 +48,10 @@ def main() -> None:
               f"adj_p={r.adjusted_p_value if r.adjusted_p_value is None else round(r.adjusted_p_value, 3)} "
               f"polarized={r.is_polarized} "
               f"skip={r.skip_reason}")
+
+    # A single network can be analyzed directly -- no dict wrapper needed.
+    single = analyze_network(make_polarized_layer(), config, scorer)
+    print(f"{'single':12s} polarized={single.is_polarized}")
 
 
 if __name__ == "__main__":

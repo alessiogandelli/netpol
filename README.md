@@ -37,9 +37,9 @@ Pass `networkx.DiGraph`s only (undirected graphs and `MultiDiGraph`s raise
 
 ```python
 import networkx as nx
-from netpol import LatentIdeologyScorer, PolarizationConfig, analyze_layers
+from netpol import PolarizationConfig, analyze, LatentIdeologyScorer
 
-def layer():                       # two camps, each retweeting one influencer
+def polarized_network():           # two camps, each retweeting one influencer
     g = nx.DiGraph()
     for i in range(100):
         g.add_edge(f"c1_{i}", "inf_1")
@@ -47,8 +47,17 @@ def layer():                       # two camps, each retweeting one influencer
     return g
 
 config = PolarizationConfig(n_influencers=2, min_edges=1)
-results = analyze_layers({"l1": layer()}, config, LatentIdeologyScorer(min_sources=1))
-print(results["l1"].is_polarized)   # True
+result = analyze(polarized_network(), config, LatentIdeologyScorer(min_sources=1))
+print(result.is_polarized)         # True
+```
+
+For a multilayer network, pass a `dict[layer_id, DiGraph]` instead -- the
+same `analyze` call (or `analyze_layers` explicitly) returns a
+`dict[layer_id, LayerResult]` with FDR correction across layers:
+
+```python
+results = analyze({"l1": layer1(), "l2": layer2()}, config)
+print(results["l1"].is_polarized)
 ```
 
 See `examples/quickstart.py` for a runnable version.
@@ -66,19 +75,52 @@ Per layer:
    built-in `LatentIdeologyScorer` is deterministic).
 4. **Test for polarization** -- Hartigan's dip test on the score distribution.
 
-Across layers, `analyze_layers` applies Benjamini-Hochberg FDR correction to
-the per-layer p-values and re-evaluates `is_polarized` against the adjusted
-values.
+Across layers, `analyze` / `analyze_layers` applies Benjamini-Hochberg FDR
+correction to the per-layer p-values and re-evaluates `is_polarized` against
+the adjusted values.
 
 ## API
 
+Everything public is importable from the package root, so `netpol.` autocompletes
+the full surface in your IDE.
+
+Entry points:
+
+- `analyze(target, config, scorer=None)` -- top-level entry point. Pass a single
+  `nx.DiGraph` and get a `LayerResult`, or a `dict[layer_id, DiGraph]` and get a
+  `dict[layer_id, LayerResult]` (with FDR correction).
+- `analyze_network(graph, config, scorer=None)` -> `LayerResult` -- the
+  single-network primitive.
+- `analyze_layers(layers, config, scorer=None)` -> `dict[layer_id, LayerResult]` --
+  the multilayer orchestration.
+
+Configuration and results:
+
 - `PolarizationConfig` -- frozen config dataclass (see `netpol/config.py`).
-- `analyze_layer(graph, config, scorer=None)` -> `LayerResult`
-- `analyze_layers(layers, config, scorer=None)` -> `dict[layer_id, LayerResult]`
+  `influencer_strategy` is typed `Literal["degree", "in_degree"]`.
 - `LatentIdeologyScorer(min_sources=2, max_sources=None)` -- built-in scorer.
 - `IdeologyScorer` -- `Protocol` to plug in your own scoring.
-- `LayerResult` -- `layer_id`, `n_nodes`, `n_edges`, `influencers`, `scores`,
-  `dip_statistic`, `p_value`, `adjusted_p_value`, `is_polarized`, `skip_reason`.
+- `LayerResult` -- what you get back per network/layer:
+
+  | field | type | meaning |
+  |---|---|---|
+  | `layer_id` | `Hashable \| None` | layer id (`None` for single networks) |
+  | `n_nodes`, `n_edges` | `int` | size of the analyzed graph |
+  | `influencers` | `list[Hashable]` | selected influencer node ids |
+  | `scores` | `DataFrame \| None` | ideology scores, indexed by node id, columns `score_1..score_n`, values in `[-1, 1]` |
+  | `dip_statistic`, `p_value` | `float \| None` | Hartigan's dip test output |
+  | `adjusted_p_value` | `float \| None` | BH-adjusted p-value (multilayer + FDR only) |
+  | `is_polarized` | `bool \| None` | p-value (adjusted if available) below `significance_level` |
+  | `skip_reason` | `str \| None` | why the layer was skipped, if it was |
+  | `was_analyzed` | `bool` | property: `True` iff scoring and dip test ran |
+
+Type aliases (documented in `netpol/types.py`) make the data shapes explicit:
+
+- `LayerId = Hashable`
+- `Layers = dict[LayerId, nx.DiGraph]`
+- `Results = dict[LayerId, LayerResult]`
+- `InteractionTable = DataFrame` with columns `['influencer', 'user']`
+- `ScoreTable = DataFrame` indexed by node id with columns `score_1..score_n`
 
 ## What this does / doesn't do (yet)
 

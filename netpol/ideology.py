@@ -31,10 +31,13 @@ References
 
 from __future__ import annotations
 
+from typing import Hashable
+
 import numpy as np
 import pandas as pd
 
 from netpol.scoring import IdeologyScorer
+from netpol.types import InteractionTable, ScoreTable
 
 
 class LatentIdeologyScorer(IdeologyScorer):
@@ -57,7 +60,7 @@ class LatentIdeologyScorer(IdeologyScorer):
         self.min_sources = min_sources
         self.max_sources = max_sources
 
-    def score(self, edges: pd.DataFrame, n_dimensions: int) -> pd.DataFrame:
+    def score(self, edges: InteractionTable, n_dimensions: int) -> ScoreTable:
         if edges is None or edges.empty:
             raise ValueError("cannot score an empty interaction table")
         if "influencer" not in edges.columns or "user" not in edges.columns:
@@ -86,7 +89,9 @@ class LatentIdeologyScorer(IdeologyScorer):
 
     # -- helpers ---------------------------------------------------------
 
-    def _build_adjacency(self, edges: pd.DataFrame) -> tuple[pd.DataFrame, list]:
+    def _build_adjacency(
+        self, edges: InteractionTable
+    ) -> tuple[pd.DataFrame, list[Hashable]]:
         """Return the (users x influencers) weighted adjacency matrix.
 
         Users touching fewer than ``min_sources`` distinct influencers are

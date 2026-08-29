@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from typing import Protocol
 
-import pandas as pd
+from netpol.types import InteractionTable, ScoreTable
 
 
 class IdeologyScorer(Protocol):
@@ -23,7 +23,7 @@ class IdeologyScorer(Protocol):
     ``score_1`` ... ``score_n``.
     """
 
-    def score(self, edges: pd.DataFrame, n_dimensions: int) -> pd.DataFrame:
+    def score(self, edges: InteractionTable, n_dimensions: int) -> ScoreTable:
         """Compute per-node ideology scores.
 
         Args:

@@ -1,8 +1,10 @@
 """The polarization pipeline.
 
-Two layers, mirroring the API contract in the design spec:
+Three entry points, from simplest to most general:
 
-* ``analyze_layer`` -- the primitive: one directed graph in, one
+* ``analyze`` -- the top-level convenience function: pass a single network
+  or a multilayer mapping and get back the matching result shape.
+* ``analyze_network`` -- the primitive: one directed graph in, one
   ``LayerResult`` out.  Fully testable in isolation.
 * ``analyze_layers`` -- thin orchestration over ``dict[layer_id, DiGraph]``
   that runs the primitive per layer and applies the one genuinely cross-layer
@@ -17,8 +19,6 @@ Design constraints enforced here (see the engineering spec):
 
 from __future__ import annotations
 
-from typing import Hashable
-
 import networkx as nx
 
 from netpol.bimodality import apply_fdr_correction, dip_test
@@ -26,12 +26,48 @@ from netpol.config import PolarizationConfig
 from netpol.edges import build_influencer_edges
 from netpol.ideology import LatentIdeologyScorer
 from netpol.influencers import select_influencers
-from netpol.layer_result import LayerResult
+from netpol.layer_result import LayerResult, Results
 from netpol.scoring import IdeologyScorer
+from netpol.types import Layers, ScoreTable
 
 
-def analyze_layer( graph: nx.DiGraph, config: PolarizationConfig, ideology_scorer: IdeologyScorer | None = None,) -> LayerResult:
-    """Run the polarization pipeline on a single directed graph.
+def analyze(
+    target: nx.DiGraph | Layers,
+    config: PolarizationConfig,
+    ideology_scorer: IdeologyScorer | None = None,
+) -> LayerResult | Results:
+    """Analyze a single network or a multilayer network.
+
+    The top-level entry point: dispatches to :func:`analyze_network` when
+    given a bare ``DiGraph`` and to :func:`analyze_layers` when given a
+    ``dict[layer_id, DiGraph]``.
+
+    Args:
+        target: A directed graph, or a mapping ``layer_id -> DiGraph``.
+        config: Run configuration.
+        ideology_scorer: Optional scorer.  Defaults to
+            `netpol.ideology.LatentIdeologyScorer`.
+
+    Returns:
+        A ``LayerResult`` for a single network, or a mapping
+        ``layer_id -> LayerResult`` for a multilayer network.
+    """
+    if isinstance(target, nx.DiGraph):
+        return analyze_network(target, config, ideology_scorer)
+    if isinstance(target, dict):
+        return analyze_layers(target, config, ideology_scorer)
+    raise TypeError(
+        "expected a networkx.DiGraph or a dict[layer_id, DiGraph], got "
+        f"{type(target).__name__}"
+    )
+
+
+def analyze_network(
+    graph: nx.DiGraph,
+    config: PolarizationConfig,
+    ideology_scorer: IdeologyScorer | None = None,
+) -> LayerResult:
+    """Run the polarization pipeline on a single directed network.
 
     Args:
         graph: A directed graph (``a -> b`` = "a retweets b").
@@ -72,7 +108,7 @@ def analyze_layer( graph: nx.DiGraph, config: PolarizationConfig, ideology_score
     scorer = ideology_scorer or LatentIdeologyScorer()
 
     try:
-        scores = scorer.score(edges, config.ideology_dimensions)
+        scores: ScoreTable = scorer.score(edges, config.ideology_dimensions)
     except Exception as exc:  # scorer is a plug point; report, don't crash
         result.skip_reason = f"scoring_failed: {type(exc).__name__}: {exc}"
         return result
@@ -92,11 +128,11 @@ def analyze_layer( graph: nx.DiGraph, config: PolarizationConfig, ideology_score
 
 
 def analyze_layers(
-    layers: dict[Hashable, nx.DiGraph],
+    layers: Layers,
     config: PolarizationConfig,
     ideology_scorer: IdeologyScorer | None = None,
-) -> dict[Hashable, LayerResult]:
-    """Run ``analyze_layer`` per layer and apply FDR correction across layers.
+) -> Results:
+    """Run ``analyze_network`` per layer and apply FDR correction across layers.
 
     Args:
         layers: Mapping ``layer_id -> DiGraph``.
@@ -109,10 +145,10 @@ def analyze_layers(
         is True, ``adjusted_p_value`` is set on analyzed layers and
         ``is_polarized`` is re-evaluated against the adjusted p-value.
     """
-    results: dict[Hashable, LayerResult] = {}
+    results: Results = {}
 
     for layer_id, graph in layers.items():
-        result = analyze_layer(graph, config, ideology_scorer)
+        result = analyze_network(graph, config, ideology_scorer)
         result.layer_id = layer_id
         if layer_id in config.exclude_layers:
             result.skip_reason = "excluded by config.exclude_layers"

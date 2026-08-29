@@ -11,12 +11,16 @@ Edge convention reminder: ``a -> b`` means "a retweets/endorses b", so
 
 from __future__ import annotations
 
+from typing import Hashable
+
 import networkx as nx
+
+from netpol.config import InfluencerStrategy
 
 
 def select_influencers(
-    graph: nx.DiGraph, strategy: str, n: int
-) -> tuple[list, list]:
+    graph: nx.DiGraph, strategy: InfluencerStrategy, n: int
+) -> tuple[list[Hashable], list[Hashable]]:
     """Split the nodes of ``graph`` into influencers and users.
 
     Args:

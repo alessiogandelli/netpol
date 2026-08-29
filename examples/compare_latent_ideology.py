@@ -163,7 +163,7 @@ def main() -> None:
     layers = read_multilayer_gml(gml)
     print(f"loaded {len(layers)} layers from {gml}")
 
-    from netpol import PolarizationConfig, analyze_layer  # noqa: E402
+    from netpol import PolarizationConfig, analyze_network  # noqa: E402
 
     config = PolarizationConfig(n_influencers=50, min_edges=10)
     from netpol.influencers import select_influencers  # noqa: E402
